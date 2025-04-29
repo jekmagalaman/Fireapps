@@ -1,0 +1,138 @@
+{% extends 'base.html' %} {% load static %} {% block content %}
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+/>
+
+<div class="page-inner">
+  <div class="page-header">
+    <h4 class="page-title">Dashboard</h4>
+    <ul class="breadcrumbs">
+      <li class="nav-home">
+        <a href="#">
+          <i class="flaticon-home"></i>
+        </a>
+      </li>
+      <li class="separator">
+        <i class="flaticon-right-arrow"></i>
+      </li>
+      <li class="nav-item">
+        <a href="#">Maps</a>
+      </li>
+      <li class="separator">
+        <i class="flaticon-right-arrow"></i>
+      </li>
+      <li class="nav-item">
+        <a href="#">Incidents</a>
+      </li>
+    </ul>
+  </div>
+  <div class="row">
+    <div class="col-md-12">
+      <div class="card card-transparent">
+        <div class="card-header">
+          <h4 class="card-title text-center">Fire Incidents</h4>
+          <p class="card-category text-center">
+            Looks great on any resolution. Made by our friends from
+            <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>.
+          </p>
+        </div>
+        <select id="incidentSelect" class="form-control mb-3">
+          <option value="" selected>Select City</option>
+          {% for city in cities %}
+          <option value="{{ city }}">{{ city }}</option>
+          {% endfor %}
+        </select>
+        <div class="card-body">
+          <div class="col-md-10 ml-auto mr-auto">
+            <div id="map" style="width: 100%; height: 400px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script>
+  // Initialize map, bounds, and tile layer
+  var map = L.map('map');
+  var bounds = new L.LatLngBounds();
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  // Initialize FireIcon
+  var FireIcon = L.icon({
+      iconUrl: '{% static "img/fire.png" %}',
+      iconSize: [50, 50],
+  });
+
+  // Initialize fireIncidents
+  var fireIncidents = {{ fireIncidents|safe }};
+
+  // Loop through fireIncidents to add markers and extend bounds
+  fireIncidents.forEach(function (incident) {
+      var latitude = parseFloat(incident.location__latitude);
+      var longitude = parseFloat(incident.location__longitude);
+
+      var marker = L.marker([latitude, longitude], { icon: FireIcon }).addTo(map);
+      bounds.extend(marker.getLatLng());
+
+      var popupContent = incident.location__name;
+      var popup = L.popup().setContent(popupContent);
+      marker.bindPopup(popup);
+
+      marker.on('mouseover', function (e) {
+          this.openPopup();
+      });
+
+      marker.on('mouseout', function (e) {
+          this.closePopup();
+      });
+  });
+
+  // Fit the map to the bounds
+  map.fitBounds(bounds);
+
+// Handle incident selection change event
+document.getElementById('incidentSelect').addEventListener('change', function () {
+    var selectedCity = this.value;
+    if (selectedCity) {
+        // Filter incidents based on the selected city
+        var filteredIncidents = fireIncidents.filter(function (incident) {
+            return incident.location__city === selectedCity;
+        });
+
+        // Create a new LatLngBounds object for the filter incidents
+        var cityBounds = new L.LatLngBounds();
+
+        filteredIncidents.forEach(function (incident) {
+            var latitude = parseFloat(incident.location__latitude);
+            var longitude = parseFloat(incident.location__longitude);
+
+            var marker = L.marker([latitude, longitude], { icon: FireIcon }).addTo(map);
+            cityBounds.extend(marker.getLatLng());
+
+            var popupContent = incident.location__name;
+            var popup = L.popup().setContent(popupContent);
+            marker.bindPopup(popup);
+
+            marker.on('mouseover', function (e) {
+                this.openPopup();
+            });
+
+            marker.on('mouseout', function (e) {
+                this.closePopup();
+            });
+        });
+
+        // Fit the map to the bounds of the filtered incidents
+        map.fitBounds(cityBounds);
+    } else {
+        // If no city is selected reset the map view
+        map.fitBounds(bounds);
+    }
+});
+
+</script>
+{% endblock %}
